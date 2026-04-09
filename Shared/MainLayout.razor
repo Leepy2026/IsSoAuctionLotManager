@@ -1,0 +1,18 @@
+@inherits LayoutComponentBase
+
+<div class="page-shell">
+    <header class="topbar">
+        <div>
+            <div class="eyebrow">IsSo Code Showcase</div>
+            <div class="brand">Auction Lot Manager</div>
+        </div>
+        <nav class="nav-links">
+            <NavLink href="/" Match="NavLinkMatch.All">Lots</NavLink>
+            <NavLink href="/lots/new">Add Lot</NavLink>
+        </nav>
+    </header>
+
+    <main class="content">
+        @Body
+    </main>
+</div>

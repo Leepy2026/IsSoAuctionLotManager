@@ -1,0 +1,50 @@
+@implements IDisposable
+
+<span class="@(isEndingSoon ? "flash-ending" : "")">
+    @displayTime
+</span>
+
+<!-- This section of code handles the dynamic countdown in the lot grid ( shows seconds ) -->
+
+@code {
+    [Parameter]
+    public DateTime EndTime { get; set; }
+
+    private string displayTime = "";
+    private bool isEndingSoon = false;
+    private System.Timers.Timer? timer;
+
+    protected override void OnInitialized()
+    {
+        UpdateTime();
+
+        timer = new System.Timers.Timer(1000);
+        timer.Elapsed += (s, e) =>
+        {
+            UpdateTime();
+            InvokeAsync(StateHasChanged);
+        };
+        timer.Start();
+    }
+
+    private void UpdateTime()
+    {
+        var remaining = EndTime - DateTime.Now;
+
+        if (remaining.TotalSeconds <= 0)
+        {
+            displayTime = "Closed";
+            isEndingSoon = false;
+        }
+        else
+        {
+            displayTime = $"{remaining.Days}d {remaining.Hours}h {remaining.Minutes}m {remaining.Seconds}s";
+            isEndingSoon = remaining.TotalHours <= 24;
+        }
+    }
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}

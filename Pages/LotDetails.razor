@@ -1,0 +1,168 @@
+﻿@page "/lots/{Id:guid}"
+@using AuctionLotManager.Models
+@inject IAuctionLotService LotService
+@inject NavigationManager Navigation
+
+<PageTitle>Lot Details</PageTitle>
+
+@if (lot is null)
+{
+    <div class="card-panel">
+        <p>Loading...</p>
+    </div>
+}
+else
+{
+
+    <nav class="breadcrumb">
+        <a href="/">Home</a>
+        <span>›</span>
+        <a href="/">Lots</a>
+        <span>›</span>
+        <span class="breadcrumb-current">@lot?.Title</span>
+    </nav>
+
+    <h1 class="page-title">@lot.Title</h1>
+
+    <div class="card-panel lot-details-panel">
+        <div class="lot-details-grid">
+            <div class="lot-image-section">
+                <img src="@GetImageUrl(lot.ImageFileName)"
+                     alt="@lot.Title"
+                     class="lot-details-image" />
+            </div>
+
+            <div class="lot-info-section">
+                <div class="lot-meta-row">
+                    <span class="status-pill @(lot.IsActive ? "status-open" : "status-closed")">
+                        @(lot.IsActive ? "Active" : "Closed")
+                    </span>
+
+                    <span class="lot-category-badge">@lot.Category</span>
+                </div>
+
+                <h2 class="lot-details-title">@lot.Title</h2>
+
+                <p class="lot-details-description">
+                    @lot.Description
+                </p>
+
+                <div class="lot-price-grid">
+                    <div class="detail-stat-card">
+                        <div class="detail-stat-label">Starting Price</div>
+                        <div class="detail-stat-value">@lot.StartingPrice.ToString("C")</div>
+                    </div>
+
+                    <div class="detail-stat-card">
+                        <div class="detail-stat-label">Reserve Price</div>
+                        <div class="detail-stat-value">@lot.ReservePrice.ToString("C")</div>
+                    </div>
+
+                    <div class="detail-stat-card">
+                        <div class="detail-stat-label">Start Time</div>
+                        <div class="detail-stat-value-small">@lot.StartTime.ToString("dd MMM yyyy HH:mm") UTC</div>
+                    </div>
+
+                    <div class="detail-stat-card">
+                        <div class="detail-stat-label">End Time</div>
+                        <div class="detail-stat-value-small">@lot.EndTime.ToString("dd MMM yyyy HH:mm") UTC</div>
+                    </div>
+
+                    <div class="detail-stat-card">
+                        <div class="detail-stat-label">Lot ID</div>
+                        <div class="detail-stat-value-small">@lot.Id.ToString()[..8]</div>
+                    </div>
+
+                </div>
+
+                <div class="lot-countdown-wrap">
+                    <div class="detail-stat-label">Time Left</div>
+                    <div class="lot-countdown-value">
+                        @if (lot.IsActive)
+                        {
+                            <LotCountdown EndTime="lot.EndTime" />
+                        }
+                        else
+                        {
+                            <span>Auction closed</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="toolbar-actions mt-4">
+                    <button class="btn btn-outline-secondary" @onclick ='() => Navigation.NavigateTo("/")'>
+                        Back
+                    </button>
+
+                    <button class="btn btn-outline-primary"
+                            disabled="@(!lot.IsActive)"
+                        @onclick ='() => Navigation.NavigateTo($"/lots/edit/{lot.Id}")'>
+                        Edit
+                    </button>
+
+                    <button class="btn btn-outline-danger"
+                            disabled="@(!lot.IsActive)"
+                        @onclick ="ShowDeleteModal">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteModal && lot is not null)
+{
+    <div class="modal-backdrop-custom">
+        <div class="modal-card">
+            <h4>Delete lot?</h4>
+            <p>Are you sure you want to delete <strong>@lot.Title</strong>?</p>
+
+            <div class="toolbar-actions mt-3">
+                <button class="btn btn-outline-secondary" @onclick ="HideDeleteModal">Cancel</button>
+                <button class="btn btn-outline-danger" @onclick ="DeleteLotAsync">Delete</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+[Parameter] public Guid Id { get; set; }
+
+private AuctionLot? lot;
+private bool showDeleteModal;
+
+protected override async Task OnParametersSetAsync()
+{
+lot = await LotService.GetByIdAsync(Id);
+
+if (lot is null)
+{
+Navigation.NavigateTo("/not-found");
+}
+}
+
+private void ShowDeleteModal()
+{
+showDeleteModal = true;
+}
+
+private void HideDeleteModal()
+{
+showDeleteModal = false;
+}
+
+private async Task DeleteLotAsync()
+{
+if (lot is null)
+return;
+
+await LotService.DeleteAsync(lot.Id);
+Navigation.NavigateTo("/");
+}
+
+private static string GetImageUrl(string? fileName)
+=> string.IsNullOrWhiteSpace(fileName)
+? "/images/no-image.png"
+: $"/uploads/{fileName}";
+}

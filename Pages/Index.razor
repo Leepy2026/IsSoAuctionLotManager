@@ -1,0 +1,233 @@
+@page "/"
+@inject IAuctionLotService LotService
+@inject NavigationManager Navigation
+
+<PageTitle>Auction Lot Manager</PageTitle>
+
+<h1 class="page-title">Auction Lots</h1>
+
+<div class="toolbar card-panel">
+    <div class="toolbar-grid">
+        <div>
+            <label class="form-label">Search</label>
+            <input class="form-control" @bind="searchTerm" @bind:event="oninput" @bind:after="OnFilterChanged" placeholder="Search title, description, or category" />
+        </div>
+        <div class="checkbox-wrap">
+            <input id="activeOnly" type="checkbox" class="form-check-input" @bind="activeOnly" @bind:after="OnFilterChanged" />
+            <label for="activeOnly" class="form-check-label">Show active lots only</label>
+        </div>
+        <div class="toolbar-actions">
+            <button class="btn btn-outline-secondary" @onclick="ResetFilters">Reset</button>
+            <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/lots/new")'>Add New Lot</button>
+        </div>
+    </div>
+</div>
+
+@if (!pagedLots.Any())
+{
+    <div class="empty-state card-panel">
+        <p>No lots matched your current filters.</p>
+    </div>
+}
+else
+{
+    <div class="table-wrap card-panel">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th class="sortable-header" title="Sort Title" @onclick='() => Sort("Title")'>Title @(GetSortIcon("Title"))</th>
+                    <th class="sortable-header" title="Sort Category" @onclick='() => Sort("Category")'>Category @(GetSortIcon("Category"))</th>
+                    <th class="sortable-header" title="Sort Starting Price" @onclick='() => Sort("StartingPrice")'>Starting Price @(GetSortIcon("StartingPrice"))</th>
+                    <th class="sortable-header" title="Sort Reserve Price" @onclick='() => Sort("ReservePrice")'>Reserve Price@(GetSortIcon("ReservePrice"))</th>
+                    <th>Status</th>
+                    <th class="sortable-header" title="Sort TimeLeft" @onclick='() => Sort("EndTime")'>Time Left</th>
+                    <th>Image</th>
+                    <th>Actions</th>
+                    <th>&nbsp;</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var lot in pagedLots)
+                {
+                    <tr>
+                        <td>
+                            <NavLink href="@($"/lots/{lot.Id}")" class="lot-title-link">
+                                <strong>@lot.Title</strong>
+                            </NavLink>
+                            <div class="text-muted small">@lot.Description</div>
+                        </td>
+                        <td>@lot.Category</td>
+                        <td>@lot.StartingPrice.ToString("C")</td>
+                        <td>@lot.ReservePrice.ToString("C")</td>
+                        <td>
+                            <span class="status-pill @(lot.IsActive ? "status-open" : "status-closed")">
+                                @(lot.IsActive ? "Active" : "Closed")
+                            </span>
+                        </td>
+                        <td>
+                            <LotCountdown EndTime="@lot.EndTime" />
+                        </td>
+                        <td>
+                             <div class="thumb-hover">
+                                <img src="@GetImageUrl(lot.ImageFileName)" alt="Lot image" class="thumb-image" />
+                                <div class="thumb-popup">
+                                    <img src="@GetImageUrl(lot.ImageFileName)"
+                                         alt="Lot preview enlarged"
+                                         class="thumb-popup-image" />
+                                </div>
+                        </div>
+                        </td>
+                        <td >                            
+                            <button class="btn btn-sm btn-outline-primary me-2" disabled="@(lot.EndTime <= DateTime.Now)" @onclick='() => Navigation.NavigateTo($"/lots/edit/{lot.Id}")'>Edit</button>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" disabled="@(lot.EndTime <= DateTime.Now)" @onclick='() => ConfirmDelete(lot.Id)'>Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination-bar">
+        <button class="btn btn-outline-secondary" @onclick="PreviousPage" disabled="@(currentPage == 1)">Previous</button>
+        <span>Page @currentPage of @totalPages</span>
+        <button class="btn btn-outline-secondary" @onclick="NextPage" disabled="@(currentPage == totalPages)">Next</button>
+    </div>
+}
+
+@if (deleteTargetId is not null)
+{
+    <div class="modal-backdrop-custom">
+        <div class="modal-card">
+            <h5>Delete lot?</h5>
+            <p>This action cannot be undone.</p>
+            <div class="toolbar-actions">
+                <button class="btn btn-outline-secondary" @onclick="CancelDelete">Cancel</button>
+                <button class="btn btn-danger" @onclick="DeleteLotAsync">Delete</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AuctionLot> lots = new();
+    private string searchTerm = string.Empty;
+    private bool activeOnly = false;
+    private int currentPage = 1;
+    private const int PageSize = 10;
+    private Guid? deleteTargetId;
+    private string sortColumn = "Title";
+    private bool sortAscending = true;
+
+    private IEnumerable<AuctionLot> filteredLots =>
+     ApplySorting(
+         lots.Where(x =>
+             (string.IsNullOrWhiteSpace(searchTerm)
+                 || x.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                 || x.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                 || x.Category.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+             && (!activeOnly || x.IsActive))
+             .OrderBy(x => x.EndTime <= DateTime.Now)
+             .OrderBy(x => x.IsActive ? 0 : 1)
+     );
+
+    private IEnumerable<AuctionLot> ApplySorting(IEnumerable<AuctionLot> query)
+    {
+        // Default sorting: Active first, then shortest EndTime
+        var sorted = query
+            .OrderBy(x => x.EndTime <= DateTime.Now)   
+            .ThenBy(x => x.EndTime);                   
+
+        // Apply column sort if selected
+        sorted = sortColumn switch
+        {
+            "Title" => sortAscending ? sorted.OrderBy(x => x.Title) : sorted.OrderByDescending(x => x.Title),
+            "Category" => sortAscending ? sorted.OrderBy(x => x.Category) : sorted.OrderByDescending(x => x.Category),
+            "StartingPrice" => sortAscending ? sorted.OrderBy(x => x.StartingPrice) : sorted.OrderByDescending(x => x.StartingPrice),
+            "ReservePrice" => sortAscending ? sorted.OrderBy(x => x.ReservePrice) : sorted.OrderByDescending(x => x.ReservePrice),
+            "EndTime" => sortAscending ? sorted.OrderBy(x => x.EndTime) : sorted.OrderByDescending(x => x.EndTime),
+            _ => sorted
+        };
+
+        return sorted;
+    }
+
+    private int totalPages => Math.Max(1, (int)Math.Ceiling(filteredLots.Count() / (double)PageSize));
+
+    private IEnumerable<AuctionLot> pagedLots =>
+        filteredLots.Skip((currentPage - 1) * PageSize).Take(PageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLotsAsync();
+    }
+
+    private async Task LoadLotsAsync()
+    {
+        lots = (await LotService.GetAllAsync()).ToList();
+        currentPage = 1;
+    }
+
+    private Task OnFilterChanged()
+    {
+        currentPage = 1;
+        return Task.CompletedTask;
+    }
+
+    private void ResetFilters()
+    {
+        searchTerm = string.Empty;
+        activeOnly = false;
+        currentPage = 1;
+    }
+
+    private void ConfirmDelete(Guid id) => deleteTargetId = id;
+
+    private void CancelDelete() => deleteTargetId = null;
+
+    private async Task DeleteLotAsync()
+    {
+        if (deleteTargetId is null) return;
+
+        await LotService.DeleteAsync(deleteTargetId.Value);
+        deleteTargetId = null;
+        await LoadLotsAsync();
+    }
+
+    private void PreviousPage()
+    {
+        if (currentPage > 1) currentPage--;
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < totalPages) currentPage++;
+    }
+
+    private void Sort(string column)
+    {
+        if (sortColumn == column)
+        {
+            sortAscending = !sortAscending;
+        }
+        else
+        {
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private string GetSortIcon(string column)
+    {
+        if (sortColumn != column)
+            return "";
+
+        return sortAscending ? "▲" : "▼";
+    }
+
+    private static string GetImageUrl(string? fileName)
+    => string.IsNullOrWhiteSpace(fileName)
+        ? "/images/no-image.png"
+        : $"/uploads/{fileName}"; 
+}
