@@ -17,6 +17,7 @@ coding style ( normally I would use Entity Framework and/or Web API)
 - Live countdown timer for lot close time
 - Sorting on table columns
 - Unit Tests ( seperate project - should be linked ) 
+- Blazor Server ( UI uses standard inbuilt Blazor Signal R ) 
 
 # Tech stack
 - .NET 8
