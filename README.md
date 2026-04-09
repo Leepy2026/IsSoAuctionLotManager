@@ -16,6 +16,7 @@ coding style ( normally I would use Entity Framework and/or Web API)
 - Pagination
 - Live countdown timer for lot close time
 - Sorting on table columns
+- Unit Tests ( seperate project - should be linked ) 
 
 # Tech stack
 - .NET 8
