@@ -67,15 +67,18 @@ else
                         <td>
                             <LotCountdown EndTime="@lot.EndTime" />
                         </td>
-                        <td>
-                             <div class="thumb-hover">
-                                <img src="@GetImageUrl(lot.ImageFileName)" alt="Lot image" class="thumb-image" />
+                       <td>
+                            <NavLink href="@($"/lots/{lot.Id}")" class="thumb-hover">
+                                <img src="@GetImageUrl(lot.ImageFileName)"
+                                     alt="Lot image"
+                                     class="thumb-image" />
+
                                 <div class="thumb-popup">
                                     <img src="@GetImageUrl(lot.ImageFileName)"
                                          alt="Lot preview enlarged"
                                          class="thumb-popup-image" />
                                 </div>
-                        </div>
+                            </NavLink>
                         </td>
                         <td >                            
                             <button class="btn btn-sm btn-outline-primary me-2" disabled="@(lot.EndTime <= DateTime.Now)" @onclick='() => Navigation.NavigateTo($"/lots/edit/{lot.Id}")'>Edit</button>
